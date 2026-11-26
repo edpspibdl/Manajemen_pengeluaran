@@ -320,6 +320,7 @@ describe('KosMate Core Financial & Meal Logic', () => {
     expect(summary.flatDailyFoodTarget).toBe(10000); // 300k / 30 days
     expect(summary.regularDayFoodTarget).toBeLessThan(summary.treatDayFoodTarget);
     expect(summary.treatMealsPerWeek).toBe(3);
+    expect(summary.healthStatus).toBe('Aman');
     expect(summary.calorieFeasibility.tone).toBe('waspada'); // ~10k/day warns to cook rice + dense protein
 
     // User manually logs what they bought & ate ("Nasi Padang Rendang" Rp 22.000, 750 kcal, Makan Enak)

@@ -7,7 +7,7 @@ import { showToast } from '../components/Modal.js';
 const obDraft = {
   name: '',
   monthlyIncome: 0,
-  incomeDay: 1,
+  incomeDay: new Date().getDate(),
   bills: [
     { name: 'Bayar Kos', amount: 0, dueDay: 1, categoryId: 'cat-exp-kos' },
     { name: 'Listrik', amount: 0, dueDay: 5, categoryId: 'cat-exp-kos' },

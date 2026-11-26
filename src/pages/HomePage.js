@@ -7,24 +7,39 @@ import { esc } from '../utils/dom.js';
 import { formatIDR } from '../utils/currency.js';
 import { appStore } from '../store/appStore.js';
 
+let gaugeScope = 'monthly'; // 'monthly' | 'daily'
+
 export function renderHomePage(state) {
   const { summary } = state;
   const statusClass = `status-pill--${String(summary.healthStatus || 'aman').toLowerCase()}`;
-  const gaugeDisplayAmount = Math.max(0, summary.remainingDailyToday);
-  const freeMoney = summary.foodBudgetMode === 'fixed' ? summary.nonFoodSafeToSpend : summary.safeToSpend;
+  const isFixedFood = summary.foodBudgetMode === 'fixed';
+  const freeMoney = isFixedFood ? summary.nonFoodSafeToSpend : summary.safeToSpend;
+
+  const gaugeConfig =
+    gaugeScope === 'monthly'
+      ? {
+          amount: Math.max(0, freeMoney),
+          totalBase: Math.max(1, summary.period?.expected_income || summary.availableOperationalCash || freeMoney),
+          eyebrow: isFixedFood ? 'Uang Bebas Bulan Ini' : 'Dana Aman Bulan Ini',
+          subPrefix: 'dari pemasukan',
+          healthStatus: freeMoney < 0 ? 'Defisit' : summary.healthStatus
+        }
+      : {
+          amount: Math.max(0, summary.remainingDailyToday),
+          totalBase: summary.baseDailyBudgetToday,
+          eyebrow: summary.remainingDailyToday < 0 ? 'Budget Hari Ini Habis' : 'Panduan Hari Ini',
+          subPrefix: 'dari jatah harian',
+          healthStatus: summary.healthStatus
+        };
 
   return `
     <div class="page-content">
-      ${renderCircularGauge({
-        amount: gaugeDisplayAmount,
-        totalBase: summary.baseDailyBudgetToday,
-        eyebrow: summary.remainingDailyToday < 0 ? 'Budget Hari Ini Habis' : 'Budget Hari Ini',
-        subPrefix: 'dari jatah harian',
-        healthStatus: summary.healthStatus
-      })}
+      ${renderCircularGauge(gaugeConfig)}
 
-      <div style="text-align:center;margin:-6px 0 14px">
+      <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin:-6px 0 14px">
         <span class="status-pill ${statusClass}">● ${esc(summary.healthStatus)}</span>
+        <button class="chip ${gaugeScope === 'monthly' ? 'chip--active' : ''}" data-gauge-scope="monthly" style="padding:4px 10px;font-size:11.5px">Bulan Ini</button>
+        <button class="chip ${gaugeScope === 'daily' ? 'chip--active' : ''}" data-gauge-scope="daily" style="padding:4px 10px;font-size:11.5px">Per Hari</button>
       </div>
 
       <div class="circle-actions-row" style="margin:0 0 16px;gap:38px">
@@ -46,13 +61,13 @@ export function renderHomePage(state) {
           </div>
         </div>
         <div data-home-go="makanan" style="cursor:pointer;border-left:1px solid var(--border-subtle);border-right:1px solid var(--border-subtle)">
-          <div style="font-size:11px;color:var(--text-muted)">Sisa Makan</div>
+          <div style="font-size:11px;color:var(--text-muted)">Makan Bulan Ini</div>
           <div class="tabular-nums" style="font-size:13.5px;font-weight:800;color:var(--emerald);margin-top:2px">
-            ${formatIDR(summary.foodBudgetMode === 'fixed' ? summary.remainingFoodPool : summary.remainingFoodToday)}
+            ${formatIDR(summary.remainingFoodPool)}
           </div>
         </div>
         <div data-home-go="keuangan" style="cursor:pointer">
-          <div style="font-size:11px;color:var(--text-muted)">${summary.foodBudgetMode === 'fixed' ? 'Uang Bebas' : 'Dana Aman'}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${isFixedFood ? 'Uang Bebas' : 'Dana Aman'}</div>
           <div class="tabular-nums" style="font-size:13.5px;font-weight:800;color:${freeMoney < 0 ? 'var(--danger)' : 'var(--forest-dark)'};margin-top:2px">
             ${formatIDR(freeMoney)}
           </div>
@@ -77,12 +92,19 @@ export function renderHomePage(state) {
   `;
 }
 
-export function bindHomeHandlers(container) {
+export function bindHomeHandlers(container, rerender) {
   const { state } = appStore;
   const barCanvas = container.querySelector('#home-spending-bar');
   if (barCanvas) {
     mountMonthlySpendingBarChart(barCanvas, state.monthlySeries || []);
   }
+
+  container.querySelectorAll('[data-gauge-scope]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      gaugeScope = btn.getAttribute('data-gauge-scope');
+      rerender();
+    });
+  });
 
   container.querySelector('#home-add-expense')?.addEventListener('click', () => {
     openQuickAddSheet({ defaultType: 'expense' });

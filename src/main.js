@@ -99,7 +99,7 @@ function renderApp() {
   else if (state.activeTab === 'makanan') bindMakananHandlers(rootEl, renderApp);
   else if (state.activeTab === 'analisis') bindAnalisisHandlers(rootEl, renderApp);
   else if (state.activeTab === 'profil') bindProfilHandlers(rootEl, renderApp);
-  else bindHomeHandlers(rootEl);
+  else bindHomeHandlers(rootEl, renderApp);
 }
 
 async function bootstrap() {

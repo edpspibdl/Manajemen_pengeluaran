@@ -27,9 +27,17 @@ export function renderMakananPage(state) {
   const plansToday = state.mealPlansToday || [];
   const planBySlot = new Map(plansToday.map((p) => [p.meal_type, p]));
 
-  const todayFoodTxs = (state.transactions || []).filter(
-    (t) => t.type === 'expense' && t.category_id === 'cat-exp-food' && t.transaction_date.slice(0, 10) === todayStr
+  const periodStart = summary.period?.start_date || todayStr;
+  const periodEnd = summary.period?.end_date || todayStr;
+  const monthFoodTxs = (state.transactions || []).filter(
+    (t) =>
+      t.type === 'expense' &&
+      t.category_id === 'cat-exp-food' &&
+      t.transaction_date.slice(0, 10) >= periodStart &&
+      t.transaction_date.slice(0, 10) <= periodEnd
   );
+  const foodPoolTarget = summary.foodBudgetMode === 'fixed' ? summary.monthlyFoodBudget : summary.remainingFoodPool + summary.periodFoodSpent;
+  const foodSpentPct = foodPoolTarget > 0 ? Math.min(100, Math.round((summary.periodFoodSpent / foodPoolTarget) * 100)) : 0;
 
   let bodyHtml = '';
 
@@ -38,15 +46,15 @@ export function renderMakananPage(state) {
       <div class="card">
         <div class="section-head" style="margin-bottom:4px">
           <div>
-            <span class="section-head__eyebrow">Pengeluaran Makan Hari Ini (${formatIDR(summary.todayFoodExpense)})</span>
-            <h3 class="section-head__title" style="font-size:16px">Sudah Dimakan Hari Ini</h3>
+            <span class="section-head__eyebrow">Terpakai Bulan Ini: ${formatIDR(summary.periodFoodSpent)}</span>
+            <h3 class="section-head__title" style="font-size:16px">Riwayat Makan Bulan Ini</h3>
           </div>
           <button class="btn btn--emerald btn--sm" id="btn-log-food-inline">+ Catat</button>
         </div>
         ${
-          todayFoodTxs.length === 0
-            ? '<div class="empty-state" style="padding:14px 8px">Belum ada catatan makan hari ini. Ketuk <strong>+ Input Beli Makan</strong> untuk mencatat makanan &amp; nominalmu.</div>'
-            : todayFoodTxs
+          monthFoodTxs.length === 0
+            ? '<div class="empty-state" style="padding:14px 8px">Belum ada catatan makan bulan ini. Ketuk <strong>+ Input Beli Makan</strong> setiap kali kamu membeli makan.</div>'
+            : monthFoodTxs
                 .map(
                   (t) => `
                   <div class="list-row" data-edit-food-tx="${t.id}" style="cursor:pointer">
@@ -56,7 +64,7 @@ export function renderMakananPage(state) {
                         ${t.is_treat_meal ? '<span class="gold-badge" style="margin-left:5px;padding:2px 6px;font-size:10px">Makan Enak</span>' : ''}
                       </div>
                       <div class="list-row__sub">
-                        ${t.meal_slot ? MEAL_TYPE_LABELS[t.meal_slot] : 'Makan'} ${t.calories ? `• ${t.calories} kkal` : ''} • ${esc(t.wallet_name)}
+                        ${formatDayMonthID(t.transaction_date)} • ${t.meal_slot ? MEAL_TYPE_LABELS[t.meal_slot] : 'Makan'} ${t.calories ? `• ${t.calories} kkal` : ''}
                       </div>
                     </div>
                     <div class="list-row__amount tabular-nums">${formatIDR(t.amount)}</div>
@@ -203,14 +211,17 @@ export function renderMakananPage(state) {
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
           <div>
             <div style="font-size:11.5px;opacity:0.8">
-              ${summary.foodBudgetMode === 'fixed' ? `Sisa Uang Makan (${summary.remainingDays} hari lagi)` : 'Target Makan Hari Ini'}
+              Sisa Uang Makan Bulan Ini (${summary.remainingDays} hari tersisa)
             </div>
-            <div class="tabular-nums" style="font-size:25px;font-weight:800;margin-top:2px">
-              ${summary.foodBudgetMode === 'fixed' ? formatIDR(summary.remainingFoodPool) : formatIDR(summary.remainingFoodToday)}
+            <div class="tabular-nums" style="font-size:26px;font-weight:800;margin-top:2px">
+              ${formatIDR(summary.remainingFoodPool)}
             </div>
-            <div style="font-size:12px;opacity:0.85;margin-top:3px">
-              Target hari ini: <strong>${formatIDR(summary.dailyFoodBudget)}</strong>
-              ${summary.foodBudgetMode === 'fixed' ? ` • Besok+: <strong>${formatIDR(summary.nextDayFlatFoodTarget)}/hr</strong>` : ''}
+            <div style="font-size:12px;opacity:0.85;margin-top:2px">
+              ${
+                summary.foodBudgetMode === 'fixed'
+                  ? `dari budget sebulan <strong>${formatIDR(summary.monthlyFoodBudget)}</strong>`
+                  : `terpakai bulan ini <strong>${formatIDR(summary.periodFoodSpent)}</strong>`
+              }
             </div>
           </div>
           <button class="btn btn--sm" id="btn-edit-food-target" style="background:rgba(255,255,255,0.16);color:#fff;font-size:11.5px">
@@ -218,12 +229,17 @@ export function renderMakananPage(state) {
           </button>
         </div>
 
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.16);font-size:11.5px;gap:6px;flex-wrap:wrap">
+        <div class="progress-track" style="margin-top:10px;background:rgba(255,255,255,0.18)">
+          <div class="progress-fill" style="width:${foodSpentPct}%;background:#34D399"></div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:11.5px;gap:6px;flex-wrap:wrap;opacity:0.92">
           <span>
-            Biasa: <strong>${formatIDR(summary.regularDayFoodTarget)}</strong> • Enak: <strong style="color:#FDE68A">${formatIDR(summary.treatDayFoodTarget)}</strong>
+            Panduan cukup sebulan: <strong>~${formatIDR(summary.nextDayFlatFoodTarget || summary.flatDailyFoodTarget)}/hr</strong>
+            (Enak: ${formatIDR(summary.treatDayFoodTarget)})
           </span>
           <span>
-            Kalori: <strong>${summary.todayCalories}/${summary.minDailyCalories}</strong> kkal
+            Kalori hr ini: <strong>${summary.todayCalories}/${summary.minDailyCalories}</strong>
           </span>
         </div>
 
@@ -237,7 +253,7 @@ export function renderMakananPage(state) {
 
       <div class="segmented-bar">
         ${[
-          ['hari_ini', 'Hari Ini'],
+          ['hari_ini', 'Bulan Ini'],
           ['mingguan', 'Planner 7 Hari'],
           ['katalog', 'Daftar Menu']
         ]

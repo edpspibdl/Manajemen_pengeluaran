@@ -185,7 +185,10 @@ export async function calculateBudgetSummary(db, todayStr = toDateString(), opti
   const remainingDailyToday = baseDailyBudgetToday - todayOperationalExpense;
 
   // ==================== FOOD POOL & TREAT SPLIT ====================
-  const monthlyFoodBudget = Number(period.food_budget_target || user?.monthly_food_budget || 0);
+  const monthlyFoodBudget =
+    user?.food_budget_mode === 'fixed'
+      ? Number(user?.monthly_food_budget || period.food_budget_target || 0)
+      : Number(period.food_budget_target || user?.monthly_food_budget || 0);
   const useFixedFoodPool = (user?.food_budget_mode === 'fixed' || monthlyFoodBudget > 0) && monthlyFoodBudget > 0;
   const foodBudgetMode = useFixedFoodPool ? 'fixed' : 'ratio';
 
@@ -313,8 +316,11 @@ export async function calculateBudgetSummary(db, todayStr = toDateString(), opti
       'Saldo operasional belum cukup menutup seluruh tagihan belum dibayar & target cadangan.';
   } else if (useFixedFoodPool && remainingFoodPool < 0) {
     healthStatus = 'Waspada';
-    healthReason = `Target budget makan periode (${formatIDR(monthlyFoodBudget)}) sudah terlampaui ${formatIDR(Math.abs(remainingFoodPool))}.`;
-  } else if (dailyFoodBudget < 10000) {
+    healthReason = `Pengeluaran makan bulan ini (${formatIDR(periodFoodSpent)}) melewati target ${formatIDR(monthlyFoodBudget)}.`;
+  } else if (foodPoolExceedsSafeCash) {
+    healthStatus = 'Waspada';
+    healthReason = `Dana aman tersisa (${formatIDR(safeToSpend)}) lebih kecil dari sisa target makan bulanan (${formatIDR(remainingFoodPool)}).`;
+  } else if (!useFixedFoodPool && dailyFoodBudget < 10000) {
     healthStatus = 'Kritis';
     healthReason =
       'Budget makan harian sangat tipis (< Rp 10.000). Prioritaskan masak sendiri padat kalori-protein.';
