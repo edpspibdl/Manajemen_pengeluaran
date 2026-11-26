@@ -1,0 +1,42 @@
+:root {
+  /* KosMate Reference Palette (Cream & Forest Green Fintech) */
+  --bg-cream: #F6F8F5;
+  --bg-surface: #FFFFFF;
+  --bg-surface-soft: #EEF3EF;
+  --bg-mint-track: #E3EBE7;
+
+  --forest-dark: #073B2E;
+  --forest-darker: #04281F;
+  --emerald: #0F7B5B;
+  --emerald-soft: #DCFCE7;
+  --emerald-muted: rgba(15, 123, 91, 0.12);
+
+  --gold: #C89D3E;
+  --gold-soft: #FBF4E2;
+
+  --magenta: #D91B5C;
+  --magenta-soft: #FCE7EF;
+
+  --warning: #D97706;
+  --warning-bg: #FEF3C7;
+  --danger: #DC2626;
+  --danger-bg: #FEE2E2;
+
+  --text-primary: #073B2E;
+  --text-body: #1E293B;
+  --text-muted: #64748B;
+  --text-light: #94A3B8;
+
+  --border-subtle: #E2E8E3;
+  --shadow-soft: 0 4px 18px rgba(7, 59, 46, 0.06);
+  --shadow-fab: 0 8px 20px rgba(7, 59, 46, 0.28);
+
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-pill: 999px;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
