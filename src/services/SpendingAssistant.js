@@ -46,6 +46,16 @@ export async function generateSpendingAlerts(db, summary, todayStr = toDateStrin
   }
 
   // 3. Today food budget overbudget & Fixed Monthly Food Pool alerts
+  if (summary.foodPoolExceedsSafeCash) {
+    alerts.push({
+      id: 'alert-food-pool-cash',
+      severity: 'danger',
+      title: 'Dana Bebas Kurang dari Sisa Budget Makan',
+      message: `Dana aman tersedia (${formatIDR(Math.max(0, summary.safeToSpend))}) lebih kecil daripada sisa target makan (${formatIDR(summary.remainingFoodPool)}). Kurangi pengeluaran lain atau sesuaikan target makan.`,
+      actionTab: 'makanan'
+    });
+  }
+
   if (summary.foodBudgetMode === 'fixed' && summary.monthlyFoodBudget > 0) {
     if (summary.remainingFoodPool < 0) {
       alerts.push({
@@ -184,9 +194,11 @@ export async function generateSpendingAlerts(db, summary, todayStr = toDateStrin
     `SELECT COALESCE(SUM(t.amount), 0) AS total
      FROM transactions t
      JOIN wallets w ON w.id = t.wallet_id
+     LEFT JOIN planned_expenses pe ON pe.transaction_id = t.id AND pe.deleted_at IS NULL
      WHERE t.deleted_at IS NULL
        AND t.type = 'expense'
        AND t.recurring_expense_id IS NULL
+       AND pe.id IS NULL
        AND w.include_in_daily_budget = 1
        AND substr(t.transaction_date, 1, 10) >= ?
        AND substr(t.transaction_date, 1, 10) <= ?`,

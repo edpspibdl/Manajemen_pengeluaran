@@ -1,4 +1,4 @@
-import { computeInitialDueDate, computePeriodBounds, toDateString } from '../utils/date.js';
+import { computePeriodBounds, findDueDateInPeriod, toDateString } from '../utils/date.js';
 import { upsertUserProfile } from '../repositories/userRepo.js';
 import { createPeriod } from '../repositories/periodRepo.js';
 import { createWallet } from '../repositories/walletRepo.js';
@@ -85,7 +85,7 @@ export async function completeOnboarding(db, payload, todayStr = toDateString())
         categoryId: bill.categoryId || 'cat-exp-kos',
         dueDay: Number(bill.dueDay) || 1,
         frequency: bill.frequency || 'monthly',
-        nextDueDate: computeInitialDueDate(todayStr, Number(bill.dueDay) || 1, bill.frequency || 'monthly')
+        nextDueDate: findDueDateInPeriod(startDate, endDate, Number(bill.dueDay) || 1, bill.frequency || 'monthly')
       });
     }
 

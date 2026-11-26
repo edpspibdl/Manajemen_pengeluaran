@@ -250,7 +250,7 @@ export async function listSavingsGoals(db) {
      ORDER BY s.is_emergency DESC, s.created_at ASC`
   );
   return rows.map((row) => {
-    const effectiveCurrent = row.wallet_id ? Math.max(row.current_amount || 0, row.linked_wallet_balance || 0) : (row.current_amount || 0);
+    const effectiveCurrent = row.wallet_id ? (row.linked_wallet_balance || 0) : (row.current_amount || 0);
     const achieved = effectiveCurrent >= row.target_amount;
     return {
       ...row,

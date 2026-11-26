@@ -5,6 +5,8 @@ import { exportBackupJson, exportTextFile } from '../services/BackupService.js';
 import { exportTransactionsCsv } from '../services/ReportService.js';
 import { toDateString } from '../utils/date.js';
 import { showToast } from './Modal.js';
+import { openQuickAddSheet } from './QuickAddSheet.js';
+import { openLogFoodSheet } from './LogFoodSheet.js';
 
 export function openDrawerMenu() {
   const existing = document.getElementById('kosmate-drawer');
@@ -27,6 +29,16 @@ export function openDrawerMenu() {
       </div>
 
       <div style="display:flex;flex-direction:column;gap:6px;flex:1">
+        <button class="btn btn--primary" style="justify-content:flex-start" data-drawer-quick="expense">
+          ${iconSvg('plus', 18)} Tambah Pengeluaran
+        </button>
+        <button class="btn btn--emerald" style="justify-content:flex-start" data-drawer-quick="food">
+          ${iconSvg('utensils', 18)} Input Beli Makan
+        </button>
+        <button class="btn btn--soft" style="justify-content:flex-start" data-drawer-quick="income">
+          ${iconSvg('wallet', 18)} Tambah Pemasukan
+        </button>
+        <div style="border-top:1px solid var(--border-subtle);margin:4px 0"></div>
         <button class="btn btn--soft" style="justify-content:flex-start" data-drawer-nav="profil">
           ${iconSvg('user', 18)} Profil &amp; Pengaturan
         </button>
@@ -53,6 +65,19 @@ export function openDrawerMenu() {
   const close = () => drawer.remove();
   drawer.addEventListener('click', (e) => {
     if (e.target === drawer) close();
+  });
+
+  drawer.querySelector('[data-drawer-quick="expense"]').addEventListener('click', () => {
+    close();
+    openQuickAddSheet({ defaultType: 'expense' });
+  });
+  drawer.querySelector('[data-drawer-quick="food"]').addEventListener('click', () => {
+    close();
+    openLogFoodSheet();
+  });
+  drawer.querySelector('[data-drawer-quick="income"]').addEventListener('click', () => {
+    close();
+    openQuickAddSheet({ defaultType: 'income' });
   });
 
   drawer.querySelector('[data-drawer-nav="profil"]').addEventListener('click', () => {

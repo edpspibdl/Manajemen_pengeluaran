@@ -213,6 +213,32 @@ export function computeInitialDueDate(todayStr, dueDay, frequency = 'monthly') {
 }
 
 /**
+ * Find the due date falling inside [startDate, endDate] for an active period.
+ * Ensures bills added during onboarding count toward the active period immediately.
+ * @param {string} startDate
+ * @param {string} endDate
+ * @param {number} dueDay
+ * @param {'weekly'|'monthly'|'yearly'} [frequency]
+ * @returns {string}
+ */
+export function findDueDateInPeriod(startDate, endDate, dueDay, frequency = 'monthly') {
+  if (frequency === 'weekly') {
+    const start = parseLocalDate(startDate);
+    const preferredDow = Math.max(1, Math.min(7, Number(dueDay) || 1)) % 7;
+    const delta = (preferredDow - start.getDay() + 7) % 7;
+    return addDays(startDate, delta);
+  }
+  const s = parseLocalDate(startDate);
+  const candidate1 = makeClampedDate(s.getFullYear(), s.getMonth() + 1, dueDay || 1);
+  if (candidate1 >= startDate && candidate1 <= endDate) return candidate1;
+  const nextM = s.getMonth() + 2 > 12 ? 1 : s.getMonth() + 2;
+  const nextY = s.getMonth() + 2 > 12 ? s.getFullYear() + 1 : s.getFullYear();
+  const candidate2 = makeClampedDate(nextY, nextM, dueDay || 1);
+  if (candidate2 >= startDate && candidate2 <= endDate) return candidate2;
+  return endDate;
+}
+
+/**
  * Format YYYY-MM-DD to compact Indonesian date (e.g. "26 Nov 2026").
  * @param {string} dateStr
  * @returns {string}

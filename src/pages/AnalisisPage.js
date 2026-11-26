@@ -19,11 +19,11 @@ export function renderAnalisisPage(state) {
 
   if (analysisMode === 'spending') {
     const items = categoryBreakdown?.items || [];
-    const avgDaily = summary?.totalDays
-      ? Math.round((summary.periodExpense || 0) / Math.max(1, summary.totalDays - summary.remainingDays + 1))
-      : 0;
+    const daysElapsed = Math.max(1, (summary?.totalDays || 1) - (summary?.remainingDays || 1) + 1);
+    const avgDaily = Math.round((summary?.periodVariableExpense || 0) / daysElapsed);
+    const futureDays = Math.max(0, (summary?.remainingDays || 1) - 1);
     const estEndBalance =
-      avgDaily > 0 ? summary.availableOperationalCash - avgDaily * summary.remainingDays : summary.availableOperationalCash;
+      summary.availableOperationalCash - (summary.unpaidObligations || 0) - avgDaily * futureDays;
 
     modeContent = `
       <div class="card">

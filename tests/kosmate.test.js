@@ -349,4 +349,74 @@ describe('KosMate Core Financial & Meal Logic', () => {
     // Remaining 278.000 across remaining 29 days = 9.586/day so 300k still lasts all month!
     expect(summary.nextDayFlatFoodTarget).toBe(Math.floor(278000 / 29));
   });
+
+  it('maintains exact balance across Tanggungan + Sisa Makan + Uang Bebas even when onboarding mid-month or paying recurring bills', async () => {
+    // User joins mid-month (Nov 26) with incomeDay = 1 (period Nov 1..Nov 30)
+    const today = '2026-11-26';
+    await completeOnboarding(
+      db,
+      {
+        name: 'Gani',
+        budgetPeriod: 'monthly',
+        incomeDay: 1,
+        monthlyIncome: 2000000,
+        monthlyFoodBudget: 300000,
+        wallets: [{ name: 'Dompet Utama', walletType: 'bank', balance: 2000000 }],
+        recurringBills: [
+          { name: 'Bayar Kos', amount: 750000, dueDay: 1, categoryId: 'cat-exp-kos' },
+          { name: 'Listrik', amount: 100000, dueDay: 5, categoryId: 'cat-exp-kos' },
+          { name: 'Kuota', amount: 100000, dueDay: 10, categoryId: 'cat-exp-internet' }
+        ]
+      },
+      today
+    );
+
+    let summary = await calculateBudgetSummary(db, today);
+    // 5 days left (Nov 26..Nov 30)
+    expect(summary.remainingDays).toBe(5);
+    expect(summary.unpaidObligations).toBe(950000);
+    expect(summary.remainingFoodPool).toBe(300000);
+    expect(summary.nonFoodSafeToSpend).toBe(750000);
+    // Exact balance equation: 950k + 300k + 750k = 2.000.000
+    expect(summary.unpaidObligations + summary.remainingFoodPool + summary.nonFoodSafeToSpend).toBe(2000000);
+    expect(summary.baseDailyBudgetToday).toBe(210000); // 1.050.000 / 5
+
+    // Paying Bayar Kos (Rp 750.000) must NOT inflate baseDailyBudgetToday or make remainingDailyToday negative!
+    const [wallet] = await listWallets(db);
+    const bills = await db.query('SELECT * FROM recurring_expenses WHERE deleted_at IS NULL');
+    const kosBill = bills.find((b) => b.name === 'Bayar Kos');
+    await payRecurringExpense(db, {
+      recurringId: kosBill.id,
+      walletId: wallet.id,
+      periodId: summary.period.id,
+      paidDate: `${today} 09:00:00`
+    });
+
+    summary = await calculateBudgetSummary(db, today);
+    expect(summary.availableOperationalCash).toBe(1250000);
+    expect(summary.unpaidObligations).toBe(200000);
+    expect(summary.safeToSpend).toBe(1050000);
+    expect(summary.nonFoodSafeToSpend).toBe(750000);
+    expect(summary.baseDailyBudgetToday).toBe(210000);
+    expect(summary.remainingDailyToday).toBe(210000);
+    expect(summary.periodVariableExpense).toBe(0); // Paying recurring bill is NOT variable daily spending!
+    expect(summary.healthStatus).toBe('Aman');
+
+    // Spending Rp 20.000 on Food keeps Uang Bebas (750rb) untouched and lowers Sisa Makan to 280rb!
+    await createTransaction(db, {
+      periodId: summary.period.id,
+      type: 'expense',
+      walletId: wallet.id,
+      categoryId: 'cat-exp-food',
+      amount: 20000,
+      transactionDate: `${today} 13:00:00`,
+      description: 'Warteg'
+    });
+
+    summary = await calculateBudgetSummary(db, today);
+    expect(summary.remainingFoodPool).toBe(280000);
+    expect(summary.nonFoodSafeToSpend).toBe(750000);
+    expect(summary.periodVariableExpense).toBe(20000);
+    expect(summary.remainingDailyToday).toBe(190000);
+  });
 });

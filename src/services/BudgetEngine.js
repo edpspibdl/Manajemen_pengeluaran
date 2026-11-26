@@ -40,6 +40,8 @@ export async function calculateBudgetSummary(db, todayStr = toDateString(), opti
       netTransferredToSavings: 0,
       remainingReserveAllocation: 0,
       safeToSpend: availableOperationalCash,
+      nonFoodSafeToSpend: availableOperationalCash,
+      foodPoolExceedsSafeCash: false,
       baseDailyBudgetToday: availableOperationalCash,
       remainingDailyToday: availableOperationalCash,
       foodBudgetMode: 'fixed',
@@ -69,6 +71,7 @@ export async function calculateBudgetSummary(db, todayStr = toDateString(), opti
       },
       periodIncome: 0,
       periodExpense: 0,
+      periodVariableExpense: 0,
       todayOperationalExpense: 0,
       todayTotalExpense: 0,
       todayFoodExpense: 0,
@@ -109,9 +112,10 @@ export async function calculateBudgetSummary(db, todayStr = toDateString(), opti
     `SELECT
        COALESCE(SUM(CASE WHEN t.type = 'income' AND t.period_id = ? THEN t.amount ELSE 0 END), 0) AS period_income,
        COALESCE(SUM(CASE WHEN t.type = 'expense' AND t.period_id = ? THEN t.amount ELSE 0 END), 0) AS period_expense,
-       COALESCE(SUM(CASE WHEN t.type = 'expense' AND substr(t.transaction_date, 1, 10) = ? AND w.include_in_daily_budget = 1 THEN t.amount ELSE 0 END), 0) AS today_op_expense,
+       COALESCE(SUM(CASE WHEN t.type = 'expense' AND t.period_id = ? AND t.recurring_expense_id IS NULL AND pe.id IS NULL THEN t.amount ELSE 0 END), 0) AS period_variable_expense,
+       COALESCE(SUM(CASE WHEN t.type = 'expense' AND substr(t.transaction_date, 1, 10) = ? AND w.include_in_daily_budget = 1 AND t.recurring_expense_id IS NULL AND pe.id IS NULL THEN t.amount ELSE 0 END), 0) AS today_op_expense,
        COALESCE(SUM(CASE WHEN t.type = 'expense' AND substr(t.transaction_date, 1, 10) = ? THEN t.amount ELSE 0 END), 0) AS today_total_expense,
-       COALESCE(SUM(CASE WHEN t.type = 'expense' AND substr(t.transaction_date, 1, 10) = ? AND t.category_id = 'cat-exp-food' AND w.include_in_daily_budget = 1 THEN t.amount ELSE 0 END), 0) AS today_op_food_expense,
+       COALESCE(SUM(CASE WHEN t.type = 'expense' AND substr(t.transaction_date, 1, 10) = ? AND t.category_id = 'cat-exp-food' AND w.include_in_daily_budget = 1 AND t.recurring_expense_id IS NULL AND pe.id IS NULL THEN t.amount ELSE 0 END), 0) AS today_op_food_expense,
        COALESCE(SUM(CASE WHEN t.type = 'expense' AND substr(t.transaction_date, 1, 10) = ? AND t.category_id = 'cat-exp-food' THEN t.amount ELSE 0 END), 0) AS today_total_food_expense,
        COALESCE(SUM(CASE WHEN t.type = 'expense' AND t.period_id = ? AND substr(t.transaction_date, 1, 10) < ? AND t.category_id = 'cat-exp-food' THEN t.amount ELSE 0 END), 0) AS period_food_before_today,
        COALESCE(SUM(CASE WHEN t.type = 'transfer' AND t.period_id = ? AND w.include_in_daily_budget = 1 AND tw.include_in_daily_budget = 0 THEN t.amount ELSE 0 END), 0) AS transfer_to_savings,
@@ -123,8 +127,10 @@ export async function calculateBudgetSummary(db, todayStr = toDateString(), opti
      FROM transactions t
      JOIN wallets w ON w.id = t.wallet_id
      LEFT JOIN wallets tw ON tw.id = t.to_wallet_id
+     LEFT JOIN planned_expenses pe ON pe.transaction_id = t.id AND pe.deleted_at IS NULL
      WHERE t.deleted_at IS NULL`,
     [
+      period.id,
       period.id,
       period.id,
       todayStr,
@@ -159,6 +165,7 @@ export async function calculateBudgetSummary(db, todayStr = toDateString(), opti
 
   const periodIncome = Number(txAgg?.period_income) || 0;
   const periodExpense = Number(txAgg?.period_expense) || 0;
+  const periodVariableExpense = Number(txAgg?.period_variable_expense) || 0;
   const todayOperationalExpense = Number(txAgg?.today_op_expense) || 0;
   const todayTotalExpense = Number(txAgg?.today_total_expense) || 0;
   const todayOperationalFoodExpense = Number(txAgg?.today_op_food_expense) || 0;
@@ -250,6 +257,10 @@ export async function calculateBudgetSummary(db, todayStr = toDateString(), opti
   }
 
   const remainingFoodToday = dailyFoodBudget - todayOperationalFoodExpense;
+  const nonFoodSafeToSpend = useFixedFoodPool
+    ? safeToSpend - Math.max(0, remainingFoodPool)
+    : safeToSpend;
+  const foodPoolExceedsSafeCash = useFixedFoodPool && remainingFoodPool > safeToSpend;
 
   // Slot allocation
   const breakfast = Math.floor(dailyFoodBudget * 0.2);
@@ -331,6 +342,8 @@ export async function calculateBudgetSummary(db, todayStr = toDateString(), opti
     netTransferredToSavings,
     remainingReserveAllocation,
     safeToSpend,
+    nonFoodSafeToSpend,
+    foodPoolExceedsSafeCash,
     safeBeforeTodayExpense,
     baseDailyBudgetToday,
     remainingDailyToday,
@@ -358,6 +371,7 @@ export async function calculateBudgetSummary(db, todayStr = toDateString(), opti
     calorieFeasibility,
     periodIncome,
     periodExpense,
+    periodVariableExpense,
     todayOperationalExpense,
     todayTotalExpense,
     todayFoodExpense,

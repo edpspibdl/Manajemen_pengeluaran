@@ -136,18 +136,21 @@ export function renderKeuanganPage(state) {
           <option value="lowest" ${txSortBy === 'lowest' ? 'selected' : ''}>Terkecil</option>
         </select>
       </div>
-      <div class="chip-row" style="margin-bottom:12px">
-        ${[
-          ['all', 'Semua'],
-          ['expense', 'Pengeluaran'],
-          ['income', 'Pemasukan'],
-          ['transfer', 'Transfer']
-        ]
-          .map(
-            ([val, lbl]) =>
-              `<button class="chip ${txTypeFilter === val ? 'chip--active' : ''}" data-tx-filter="${val}">${lbl}</button>`
-          )
-          .join('')}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px">
+        <div class="chip-row" style="margin-bottom:0">
+          ${[
+            ['all', 'Semua'],
+            ['expense', 'Pengeluaran'],
+            ['income', 'Pemasukan'],
+            ['transfer', 'Transfer']
+          ]
+            .map(
+              ([val, lbl]) =>
+                `<button class="chip ${txTypeFilter === val ? 'chip--active' : ''}" data-tx-filter="${val}">${lbl}</button>`
+            )
+            .join('')}
+        </div>
+        <button class="btn btn--primary btn--sm" id="btn-keu-add-expense" style="white-space:nowrap">+ Pengeluaran</button>
       </div>
       <div class="card">
         ${
@@ -474,6 +477,10 @@ export function bindKeuanganHandlers(container, rerender) {
       const tx = state.transactions.find((t) => t.id === el.getAttribute('data-edit-tx'));
       if (tx) openQuickAddSheet({ editTx: tx });
     });
+  });
+
+  container.querySelector('#btn-keu-add-expense')?.addEventListener('click', () => {
+    openQuickAddSheet({ defaultType: 'expense' });
   });
 
   // Wallets
